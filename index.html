@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Ultra Snake Game</title>
+  <title>Snake game app</title>
   <style>
     body {
       text-align: center;
@@ -10,13 +10,9 @@
       font-family: Arial;
     }
 
-    h1 {
-      color: #22c55e;
-    }
-
     canvas {
-      background: #000;
-      border: 3px solid #22c55e;
+      background: black;
+      border: 3px solid lime;
       margin-top: 10px;
       touch-action: none;
     }
@@ -26,28 +22,28 @@
       font-size: 18px;
     }
 
-    .controls {
-      margin-top: 15px;
-    }
-
     button {
-      padding: 10px 15px;
+      padding: 12px;
       margin: 5px;
       font-size: 18px;
-      background: #22c55e;
+      border-radius: 10px;
       border: none;
-      border-radius: 8px;
+      background: lime;
     }
   </style>
 </head>
 <body>
 
-<h1>🐍 Ultra Snake</h1>
-<div id="info">Score: 0 | High Score: 0</div>
+<h2>🐍 Snake Mobile</h2>
+<div id="info">Tap START to play</div>
 
-<canvas id="game" width="400" height="400"></canvas>
+<button onclick="startGame()">▶️ Start Game</button>
 
-<div class="controls">
+<br>
+
+<canvas id="game" width="300" height="300"></canvas>
+
+<div>
   <button onclick="setDir('UP')">⬆️</button><br>
   <button onclick="setDir('LEFT')">⬅️</button>
   <button onclick="setDir('RIGHT')">➡️</button><br>
@@ -58,47 +54,39 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// sounds
-const eatSound = new Audio("https://www.soundjay.com/button/beep-07.wav");
-const gameOverSound = new Audio("https://www.soundjay.com/button/beep-10.wav");
-const bgMusic = new Audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3");
-bgMusic.loop = true;
-bgMusic.volume = 0.3;
-bgMusic.play();
+let snake, food, direction, score, speed, game;
 
-let box = 20;
-let snake = [{x: 200, y: 200}];
-let direction = "RIGHT";
-let score = 0;
-let speed = 120;
+// sounds (will start only after button click)
+let eatSound, gameOverSound, bgMusic;
 
-// high score
-let highScore = localStorage.getItem("snakeHighScore") || 0;
+function startGame() {
+  // init sounds AFTER user click ✅
+  eatSound = new Audio("https://www.soundjay.com/button/beep-07.wav");
+  gameOverSound = new Audio("https://www.soundjay.com/button/beep-10.wav");
+  bgMusic = new Audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3");
 
-function updateInfo() {
-  document.getElementById("info").innerText =
-    "Score: " + score + " | High Score: " + highScore;
+  bgMusic.loop = true;
+  bgMusic.volume = 0.2;
+  bgMusic.play();
+
+  snake = [{x: 140, y: 140}];
+  direction = "RIGHT";
+  score = 0;
+  speed = 150;
+
+  food = randomFood();
+
+  if (game) clearInterval(game);
+  game = setInterval(draw, speed);
 }
-updateInfo();
 
-// food
 function randomFood() {
   return {
-    x: Math.floor(Math.random() * 20) * box,
-    y: Math.floor(Math.random() * 20) * box
+    x: Math.floor(Math.random() * 15) * 20,
+    y: Math.floor(Math.random() * 15) * 20
   };
 }
-let food = randomFood();
 
-// keyboard control
-document.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
-  if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
-  if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
-  if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
-});
-
-// mobile buttons
 function setDir(dir) {
   if (dir === "LEFT" && direction !== "RIGHT") direction = "LEFT";
   if (dir === "RIGHT" && direction !== "LEFT") direction = "RIGHT";
@@ -106,94 +94,82 @@ function setDir(dir) {
   if (dir === "DOWN" && direction !== "UP") direction = "DOWN";
 }
 
-// swipe control
-let startX, startY;
+// swipe control (FIXED)
+let startX = 0, startY = 0;
 
 canvas.addEventListener("touchstart", e => {
   startX = e.touches[0].clientX;
   startY = e.touches[0].clientY;
 });
 
-canvas.addEventListener("touchmove", e => {
-  let dx = e.touches[0].clientX - startX;
-  let dy = e.touches[0].clientY - startY;
+canvas.addEventListener("touchend", e => {
+  let dx = e.changedTouches[0].clientX - startX;
+  let dy = e.changedTouches[0].clientY - startY;
 
   if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 0 && direction !== "LEFT") direction = "RIGHT";
-    else if (dx < 0 && direction !== "RIGHT") direction = "LEFT";
+    if (dx > 30) setDir("RIGHT");
+    else if (dx < -30) setDir("LEFT");
   } else {
-    if (dy > 0 && direction !== "UP") direction = "DOWN";
-    else if (dy < 0 && direction !== "DOWN") direction = "UP";
+    if (dy > 30) setDir("DOWN");
+    else if (dy < -30) setDir("UP");
   }
 });
 
-// draw snake (rounded + glow)
-function drawSnakePart(x, y, head=false) {
-  ctx.fillStyle = head ? "#22c55e" : "#4ade80";
-  ctx.beginPath();
-  ctx.arc(x + box/2, y + box/2, box/2, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.shadowColor = "#22c55e";
-  ctx.shadowBlur = 10;
-}
-
-// game loop
 function draw() {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, 400, 400);
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, 300, 300);
 
   // snake
-  snake.forEach((p, i) => drawSnakePart(p.x, p.y, i === 0));
+  snake.forEach((p, i) => {
+    ctx.fillStyle = i === 0 ? "lime" : "green";
+    ctx.fillRect(p.x, p.y, 20, 20);
+  });
 
   // food
-  ctx.fillStyle = "#ef4444";
-  ctx.fillRect(food.x, food.y, box, box);
+  ctx.fillStyle = "red";
+  ctx.fillRect(food.x, food.y, 20, 20);
 
   let headX = snake[0].x;
   let headY = snake[0].y;
 
-  if (direction === "LEFT") headX -= box;
-  if (direction === "RIGHT") headX += box;
-  if (direction === "UP") headY -= box;
-  if (direction === "DOWN") headY += box;
+  if (direction === "LEFT") headX -= 20;
+  if (direction === "RIGHT") headX += 20;
+  if (direction === "UP") headY -= 20;
+  if (direction === "DOWN") headY += 20;
 
   // collision
   if (
     headX < 0 || headY < 0 ||
-    headX >= 400 || headY >= 400 ||
+    headX >= 300 || headY >= 300 ||
     snake.some(s => s.x === headX && s.y === headY)
   ) {
     gameOverSound.play();
-
-    if (score > highScore) {
-      localStorage.setItem("snakeHighScore", score);
-    }
-
-    alert("💥 Game Over!");
-    location.reload();
+    bgMusic.pause();
+    alert("💥 Game Over! Score: " + score);
+    clearInterval(game);
+    return;
   }
 
   // eat
   if (headX === food.x && headY === food.y) {
     score++;
     eatSound.play();
+    document.getElementById("info").innerText = "Score: " + score;
+
     food = randomFood();
 
-    if (score > highScore) highScore = score;
-    updateInfo();
-
-    if (speed > 60) speed -= 3;
-    clearInterval(game);
-    game = setInterval(draw, speed);
+    // speed up
+    if (speed > 70) {
+      speed -= 5;
+      clearInterval(game);
+      game = setInterval(draw, speed);
+    }
   } else {
     snake.pop();
   }
 
   snake.unshift({x: headX, y: headY});
 }
-
-let game = setInterval(draw, speed);
 </script>
 
 </body>
